@@ -25,7 +25,7 @@ struct PocketCardView: View {
 
                 Button(action: onEdit) {
                     Image(systemName: "pencil.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.system(size: 25))
                         .foregroundStyle(Color(red:0.12,green:0.12,blue:0.18))
                         .symbolRenderingMode(.hierarchical)
                 }
@@ -35,19 +35,19 @@ struct PocketCardView: View {
 
             // Reminder subtitle
             Text("Reminder: \(pocket.daysSummary) \(pocket.reminderTimeString)")
-                .font(.system(size: 13, weight: .regular))
+                .font(.system(size: 15, weight: .regular))
                 .foregroundStyle(Color(red:0.12,green:0.12,blue:0.18).opacity(0.6))
                 .padding(.bottom, 14)
 
             // ── Location mini-map ────────────────────────────────────────
             MapPreview(coordinate: pocket.location.coordinate, name: pocket.location.name)
-                .frame(height: 90)
+                .frame(height: 100)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(alignment: .bottomLeading) {
                     Label(pocket.location.name, systemImage: "mappin.fill")
                         .font(.caption2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.black)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(.ultraThinMaterial, in: Capsule())
