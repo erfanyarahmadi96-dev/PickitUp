@@ -9,9 +9,11 @@ import SwiftUI
 
 @main
 struct PickitUpApp: App {
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+               
         }
     }
-}
+    }

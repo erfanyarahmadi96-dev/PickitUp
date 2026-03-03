@@ -1,0 +1,93 @@
+{
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
+  },
+  "groups" : [
+    {
+      "blend-mode" : "normal",
+      "layers" : [
+        {
+          "image-name" : "watchos3.png",
+          "name" : "watchos3",
+          "position-specializations" : [
+            {
+              "value" : {
+                "scale" : 1.33,
+                "translation-in-points" : [
+                  -2.5859375,
+                  -2.019999999999982
+                ]
+              }
+            },
+            {
+              "idiom" : "watchOS",
+              "value" : {
+                "scale" : 1.33,
+                "translation-in-points" : [
+                  -2.5859375,
+                  -2.019999999999982
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "image-name" : "watchos2.png",
+          "name" : "watchos2",
+          "position-specializations" : [
+            {
+              "value" : {
+                "scale" : 1.33,
+                "translation-in-points" : [
+                  0,
+                  0
+                ]
+              }
+            },
+            {
+              "idiom" : "watchOS",
+              "value" : {
+                "scale" : 1.33,
+                "translation-in-points" : [
+                  0,
+                  0
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "image-name" : "watchos 2.png",
+          "name" : "watchos 2",
+          "position-specializations" : [
+            {
+              "idiom" : "watchOS",
+              "value" : {
+                "scale" : 1.33,
+                "translation-in-points" : [
+                  0,
+                  0
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "lighting" : "individual",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
