@@ -22,7 +22,7 @@ struct ContentView: View {
                         // Title row
                         // Title row
                         HStack(alignment: .center, spacing: 10) {
-                            Text("Pocket")
+                            Text("Pockets")
                                 .font(
                                     .system(
                                         size: 36,
