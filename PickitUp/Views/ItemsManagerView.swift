@@ -6,15 +6,13 @@
 //
 
 
-
 import SwiftUI
 
 struct ItemsManagerView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
 
-    @State private var showAddItem = false
-    @State private var itemToEdit: PocketItem? = nil
+    @State private var activeSheet: ActiveSheet?
 
     var body: some View {
         NavigationStack {
@@ -36,7 +34,7 @@ struct ItemsManagerView: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
-                        showAddItem = true
+                        activeSheet = .add
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -44,16 +42,19 @@ struct ItemsManagerView: View {
                     .accessibilityHint("Opens the screen to create a new item")
                 }
             }
-            .sheet(isPresented: $showAddItem) {
-                AddEditItemView { newItem in
-                    store.addTrayItem(newItem)
-                }
-            }
-            .sheet(item: $itemToEdit) { item in
-                AddEditItemView(existingItem: item) { updated in
-                    store.updateTrayItem(updated)
-                } onDelete: {
-                    store.deleteTrayItem(id: item.id)
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .add:
+                    AddEditItemView { newItem in
+                        store.addTrayItem(newItem)
+                    }
+
+                case .edit(let item):
+                    AddEditItemView(existingItem: item) { updated in
+                        store.updateTrayItem(updated)
+                    } onDelete: {
+                        store.deleteTrayItem(id: item.id)
+                    }
                 }
             }
         }
@@ -97,7 +98,7 @@ struct ItemsManagerView: View {
             }
 
             Button {
-                showAddItem = true
+                activeSheet = .add
             } label: {
                 Label("Create First Item", systemImage: "plus")
                     .font(.headline)
@@ -126,7 +127,7 @@ struct ItemsManagerView: View {
             Section {
                 ForEach(store.trayItems) { item in
                     Button {
-                        itemToEdit = item
+                        activeSheet = .edit(item)
                     } label: {
                         HStack(spacing: 14) {
                             ZStack {
@@ -177,7 +178,7 @@ struct ItemsManagerView: View {
                         }
 
                         Button {
-                            itemToEdit = item
+                            activeSheet = .edit(item)
                         } label: {
                             Label("Edit", systemImage: "pencil")
                         }
@@ -193,5 +194,21 @@ struct ItemsManagerView: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+}
+
+// MARK: - ActiveSheet
+
+private enum ActiveSheet: Identifiable {
+    case add
+    case edit(PocketItem)
+
+    var id: String {
+        switch self {
+        case .add:
+            return "add"
+        case .edit(let item):
+            return "edit-\(item.id.uuidString)"
+        }
     }
 }

@@ -27,8 +27,7 @@ enum Weekday: String, CaseIterable, Codable, Identifiable {
         }
     }
 
-    /// Calendar weekday mapping
-    /// Sunday = 1 ... Saturday = 7
+    // Sunday = 1 ... Saturday = 7
     var calendarWeekday: Int {
         switch self {
         case .sun: return 1
@@ -129,7 +128,6 @@ final class AppStore: ObservableObject {
 
         Task {
             let status = await NotificationManager.shared.getAuthorizationStatus()
-
             if status == .authorized || status == .provisional || status == .ephemeral {
                 await NotificationManager.shared.rescheduleAll(pockets: self.pockets)
             }
@@ -162,7 +160,6 @@ final class AppStore: ObservableObject {
 
         Task {
             let status = await NotificationManager.shared.getAuthorizationStatus()
-
             if status == .authorized || status == .provisional || status == .ephemeral {
                 await NotificationManager.shared.scheduleNotifications(for: pocket)
             }
@@ -218,22 +215,5 @@ final class AppStore: ObservableObject {
     func removeItemFromPocket(itemId: UUID, pocketId: UUID) {
         guard let idx = pockets.firstIndex(where: { $0.id == pocketId }) else { return }
         pockets[idx].items.removeAll { $0.id == itemId }
-    }
-
-    // MARK: - Debug
-
-    func sendTestNotification() {
-        Task {
-            let status = await NotificationManager.shared.getAuthorizationStatus()
-
-            if status == .notDetermined {
-                let granted = await NotificationManager.shared.requestPermission()
-                if granted {
-                    await NotificationManager.shared.scheduleTestNotification(after: 5)
-                }
-            } else if status == .authorized || status == .provisional || status == .ephemeral {
-                await NotificationManager.shared.scheduleTestNotification(after: 5)
-            }
-        }
     }
 }

@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var showAddPocket = false
     @State private var pocketToEdit: Pocket? = nil
     @State private var showItemsManager = false
+    @State private var leavingPocket: Pocket?
 
     private var today: Weekday {
         let weekdayNumber = Calendar.current.component(.weekday, from: Date())
@@ -31,12 +32,12 @@ struct ContentView: View {
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             VStack(spacing: 0) {
-
+                
                 // ── WAISTBAND / HEADER ────────────────────────────────────
                 ZStack(alignment: .bottom) {
                     Color(.systemGray6)
                         .ignoresSafeArea(edges: .top)
-
+                    
                     VStack(spacing: 0) {
                         HStack(alignment: .center, spacing: 10) {
                             Text("Pockets")
@@ -45,16 +46,16 @@ struct ContentView: View {
                                     .primary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
-
+                            
                             Spacer()
-
+                            
                             Button {
                                 showAddPocket = true
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: "plus")
                                         .font(.subheadline.weight(.bold))
-
+                                    
                                     Text("New Pocket")
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
@@ -72,32 +73,32 @@ struct ContentView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 10)
                         .padding(.bottom, 14)
-
+                        
                         Belt()
                     }
                 }
                 .fixedSize(horizontal: false, vertical: true)
-
+                
                 // ── BODY ──────────────────────────────────────────────────
                 ZStack {
                     DenimBackground()
                         .ignoresSafeArea(edges: .bottom)
-
+                    
                     ScrollView {
                         LazyVStack(spacing: 16) {
                             todaysCheckSection
-
+                            
                             if !store.pockets.isEmpty {
                                 sectionHeader("All Pockets")
                             }
-
+                            
                             ForEach(store.pockets) { pocket in
                                 PocketCardView(pocket: pocket) {
                                     pocketToEdit = pocket
                                 }
                                 .environmentObject(store)
                             }
-
+                            
                             Button {
                                 showAddPocket = true
                             } label: {
@@ -109,12 +110,12 @@ struct ContentView: View {
                                                 style: StrokeStyle(lineWidth: 2, dash: [5, 4])
                                             )
                                             .frame(width: 48, height: 48)
-
+                                        
                                         Image(systemName: "plus")
                                             .font(.system(size: 20, weight: .medium))
                                             .foregroundStyle(UITheme.textOnDark.opacity(0.7))
                                     }
-
+                                    
                                     Text("Add Pocket")
                                         .font(.subheadline)
                                         .fontWeight(.medium)
@@ -133,7 +134,7 @@ struct ContentView: View {
                             .buttonStyle(.plain)
                             .accessibilityLabel("Add pocket")
                             .accessibilityHint("Opens the create pocket screen")
-
+                            
                             Color.clear.frame(height: 110)
                         }
                         .padding(.horizontal, 20)
@@ -141,30 +142,17 @@ struct ContentView: View {
                     }
                 }
             }
-
+            
             // MARK: Test Notification Button
-            Button("Test Notification") {
-                store.sendTestNotification()
-            }
-            .font(.subheadline)
-            .fontWeight(.semibold)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(UITheme.buttonPrimaryBackground, in: Capsule())
-            .foregroundStyle(UITheme.buttonPrimaryText)
-            .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
-            .padding(.bottom, 120)
-            .padding(.trailing, 20)
-            .accessibilityHint("Sends a test notification after a few seconds")
-
-            // ── FLOATING ITEMS BUTTON ────────────────────────────────────
+            
+            
             Button {
                 showItemsManager = true
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "square.grid.2x2.fill")
                         .font(.system(size: 18, weight: .semibold))
-
+                    
                     Text("Items")
                         .font(.headline)
                         .fontWeight(.semibold)
@@ -185,50 +173,66 @@ struct ContentView: View {
             .accessibilityHint("Opens your saved items")
         }
         .ignoresSafeArea(edges: .bottom)
+        
         .sheet(isPresented: $showAddPocket) {
             AddEditPocketView { newPocket in
                 store.addPocket(newPocket)
             }
+            .environmentObject(store)
         }
+        
         .sheet(item: $pocketToEdit) { pocket in
             AddEditPocketView(existingPocket: pocket) { updated in
                 store.updatePocket(updated)
             } onDelete: {
                 store.deletePocket(id: pocket.id)
             }
+            .environmentObject(store)
         }
+        
         .sheet(isPresented: $showItemsManager) {
             ItemsManagerView()
                 .environmentObject(store)
                 .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
+        }
+        
+        .sheet(item: $leavingPocket) { pocket in
+            LeavingModeView(pocket: pocket)
+        }
+        
+        .onAppear {
+            openLeavingPocketIfNeeded()
         }
     }
-
     // MARK: - Today Section
 
     private var todaysCheckSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(UITheme.surfaceSoft)
-                        .frame(width: 54, height: 54)
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(UITheme.surface.opacity(0.18))
+                        .frame(width: 46, height: 46)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(UITheme.textOnDark.opacity(0.14), lineWidth: 1)
+                        )
 
                     Image(systemName: todaysPockets.isEmpty ? "calendar" : "checklist")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(UITheme.textOnDark)
                 }
                 .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("Today’s Check")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.title2.weight(.bold))
                         .foregroundStyle(UITheme.textOnDark)
 
                     Text(heroSubtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(UITheme.textOnDark.opacity(0.88))
+                        .font(.footnote)
+                        .foregroundStyle(UITheme.textOnDark.opacity(0.78))
+                        .lineSpacing(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -264,17 +268,17 @@ struct ContentView: View {
 
                     Text("Create a pocket and choose days so PickitUP can remind you before you leave.")
                         .font(.footnote)
-                        .foregroundStyle(UITheme.textOnDark.opacity(0.86))
+                        .foregroundStyle(UITheme.textOnDark.opacity(0.82))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(14)
-                .background(UITheme.surfaceSoft, in: RoundedRectangle(cornerRadius: 18))
+                .background(UITheme.surface.opacity(0.14), in: RoundedRectangle(cornerRadius: 18))
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Scheduled Today")
                         .font(.footnote)
                         .fontWeight(.semibold)
-                        .foregroundStyle(UITheme.textOnDark.opacity(0.94))
+                        .foregroundStyle(UITheme.textOnDark.opacity(0.92))
                         .textCase(.uppercase)
 
                     ForEach(todaysPockets.prefix(3)) { pocket in
@@ -284,7 +288,7 @@ struct ContentView: View {
                             HStack(spacing: 12) {
                                 ZStack {
                                     Circle()
-                                        .fill(UITheme.surfaceSoft)
+                                        .fill(UITheme.surface.opacity(0.16))
                                         .frame(width: 40, height: 40)
 
                                     Image(systemName: pocket.sfSymbol)
@@ -310,7 +314,7 @@ struct ContentView: View {
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 12)
-                            .background(UITheme.surfaceSoft, in: RoundedRectangle(cornerRadius: 16))
+                            .background(UITheme.surface.opacity(0.14), in: RoundedRectangle(cornerRadius: 16))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("\(pocket.name), \(pocket.reminderTimeString)")
@@ -325,8 +329,8 @@ struct ContentView: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            UITheme.surfaceGlass,
-                            UITheme.surfaceSoft
+                            UITheme.primary.opacity(0.22),
+                            UITheme.primary.opacity(0.12)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -334,7 +338,7 @@ struct ContentView: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 26)
-                        .stroke(UITheme.textOnDark.opacity(0.20), lineWidth: 1)
+                        .stroke(UITheme.textOnDark.opacity(0.16), lineWidth: 1)
                 )
         )
         .accessibilityElement(children: .contain)
@@ -350,6 +354,17 @@ struct ContentView: View {
         }
 
         return "Check today’s essentials before you head out."
+    }
+    
+    private func openLeavingPocketIfNeeded() {
+        guard
+            let id = NotificationDelegate.sharedPocketID,
+            let uuid = UUID(uuidString: id),
+            let pocket = store.pockets.first(where: { $0.id == uuid })
+        else { return }
+
+        leavingPocket = pocket
+        NotificationDelegate.sharedPocketID = nil
     }
 
     @ViewBuilder
