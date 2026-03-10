@@ -1,182 +1,232 @@
 import SwiftUI
-import MapKit
 
 struct AddEditPocketView: View {
     var existingPocket: Pocket? = nil
     var onSave: (Pocket) -> Void
     var onDelete: (() -> Void)? = nil
-
+    
     @Environment(\.dismiss) private var dismiss
-
+    
     @State private var name: String = ""
     @State private var sfSymbol: String = "bag.fill"
     @State private var selectedDays: Set<Weekday> = [.mon, .tue, .wed, .thu, .fri]
     @State private var reminderTime: Date = Pocket.defaultTime()
-    @State private var location: PocketLocation? = nil
-
+    
     @State private var showIconPicker = false
-    @State private var showLocationPicker = false
-
+    
     var isEditing: Bool { existingPocket != nil }
-    var canSave: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty && location != nil
+    
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-
+    
+    private var canSave: Bool {
+        !trimmedName.isEmpty
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
-
+                
                 // MARK: Preview
                 Section {
                     HStack {
                         Spacer()
+                        
                         VStack(spacing: 10) {
                             ZStack {
                                 Circle()
-                                    .fill(Color(.secondarySystemBackground))
-                                    .frame(width: 80, height: 80)
+                                    .fill(UITheme.chipBackground)
+                                    .frame(width: 84, height: 84)
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(
+                                                UITheme.primary.opacity(0.10),
+                                                lineWidth: 1.2
+                                            )
+                                    )
+                                
                                 Image(systemName: sfSymbol)
-                                    .font(.system(size: 32))
-                                    .foregroundStyle(.primary)
+                                    .font(.system(size: 32, weight: .medium))
+                                    .foregroundStyle(UITheme.primary)
                             }
-                            Text(name.isEmpty ? "Pocket Name" : name.uppercased())
+                            .accessibilityHidden(true)
+                            
+                            Text(name.isEmpty ? "Pocket Name" : trimmedName.uppercased())
                                 .font(.headline)
-                                .foregroundStyle(name.isEmpty ? .secondary : .primary)
+                                .foregroundStyle(name.isEmpty ? UITheme.textSecondary : UITheme.primary)
+                                .multilineTextAlignment(.center)
                         }
+                        
                         Spacer()
                     }
                     .padding(.vertical, 8)
                     .listRowBackground(Color.clear)
                 }
-
-                // MARK: Name & Icon
-                Section("Details") {
-                    TextField("Pocket name (e.g. GYM, Work...)", text: $name)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.characters)
-
-                    Button {
-                        showIconPicker = true
-                    } label: {
-                        HStack {
-                            Image(systemName: sfSymbol)
-                                .font(.title3)
-                                .frame(width: 32)
-                                .foregroundStyle(.primary)
-                            Text("Choose Icon")
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-
-                // MARK: Reminder
-                Section("Reminder") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Days")
+                
+                // MARK: Details
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Details")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        HStack(spacing: 6) {
-                            ForEach(Weekday.allCases) { day in
-                                DayChip(
-                                    label: day.rawValue,
-                                    isSelected: selectedDays.contains(day)
-                                ) {
-                                    if selectedDays.contains(day) {
-                                        selectedDays.remove(day)
-                                    } else {
-                                        selectedDays.insert(day)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(UITheme.primary)
+                        
+                        TextField("Pocket name (e.g. GYM, WORK...)", text: $name)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.characters)
+                            .foregroundStyle(UITheme.primary)
+                        
+                        Button {
+                            showIconPicker = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(UITheme.chipBackground)
+                                        .frame(width: 38, height: 38)
+                                    
+                                    Image(systemName: sfSymbol)
+                                        .font(.system(size: 17, weight: .medium))
+                                        .foregroundStyle(UITheme.primary)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Choose Icon")
+                                        .font(.body)
+                                        .foregroundStyle(UITheme.primary)
+                                    
+                                    Text("Pick a symbol for this pocket")
+                                        .font(.caption)
+                                        .foregroundStyle(UITheme.textSecondary)
+                                }
+                                
+                                Spacer()
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(UITheme.textSecondary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Opens the icon picker")
+                    }
+                    .padding(.vertical, 4)
+                }
+                
+                // MARK: Reminder
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Reminder")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(UITheme.primary)
+                        
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Days")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(UITheme.textSecondary)
+                            
+                            HStack(spacing: 6) {
+                                ForEach(Weekday.allCases) { day in
+                                    DayChip(
+                                        label: day.rawValue,
+                                        isSelected: selectedDays.contains(day)
+                                    ) {
+                                        toggle(day)
                                     }
                                 }
                             }
+                            
+                            HStack(spacing: 8) {
+                                quickSelectButton("All") {
+                                    selectedDays = Set(Weekday.allCases)
+                                }
+                                
+                                quickSelectButton("Weekdays") {
+                                    selectedDays = [.mon, .tue, .wed, .thu, .fri]
+                                }
+                                
+                                quickSelectButton("Weekends") {
+                                    selectedDays = [.sat, .sun]
+                                }
+                                
+                                quickSelectButton("None") {
+                                    selectedDays = []
+                                }
+                            }
                         }
-                        HStack(spacing: 8) {
-                            quickSelectButton("All")      { selectedDays = Set(Weekday.allCases) }
-                            quickSelectButton("Weekdays") { selectedDays = [.mon, .tue, .wed, .thu, .fri] }
-                            quickSelectButton("Weekends") { selectedDays = [.sat, .sun] }
-                            quickSelectButton("None")     { selectedDays = [] }
+                        
+                        DatePicker(
+                            "Time",
+                            selection: $reminderTime,
+                            displayedComponents: .hourAndMinute
+                        )
+                        .tint(UITheme.primary)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Quick Time Presets")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(UITheme.textSecondary)
+                            
+                            HStack(spacing: 8) {
+                                quickSelectButton("Morning") {
+                                    reminderTime = makeTime(hour: 8, minute: 0)
+                                }
+                                
+                                quickSelectButton("Work") {
+                                    reminderTime = makeTime(hour: 8, minute: 30)
+                                }
+                                
+                                quickSelectButton("School") {
+                                    reminderTime = makeTime(hour: 7, minute: 30)
+                                }
+                                
+                                quickSelectButton("Evening") {
+                                    reminderTime = makeTime(hour: 18, minute: 0)
+                                }
+                            }
                         }
                     }
                     .padding(.vertical, 4)
-
-                    DatePicker("Time", selection: $reminderTime, displayedComponents: .hourAndMinute)
                 }
-
-                // MARK: Location (mandatory)
-                Section {
-                    Button {
-                        showLocationPicker = true
-                    } label: {
-                        HStack(spacing: 12) {
-                            ZStack {
-                                Circle()
-                                    .fill(location == nil ? Color.orange.opacity(0.12) : Color.green.opacity(0.12))
-                                    .frame(width: 36, height: 36)
-                                Image(systemName: location == nil ? "mappin.circle" : "mappin.circle.fill")
-                                    .font(.title3)
-                                    .foregroundStyle(location == nil ? .orange : .green)
-                            }
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(location == nil ? "Set Location" : "Change Location")
-                                    .foregroundStyle(.primary)
-                                    .fontWeight(.medium)
-                                if location == nil {
-                                    Text("Required — tap to pick on map")
-                                        .font(.caption)
-                                        .foregroundStyle(.orange)
-                                } else {
-                                    Text(location!.name)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
+                
+                // MARK: Existing Items
+                if isEditing {
+                    Section {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Items")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(UITheme.primary)
+                            
+                            if let items = existingPocket?.items, !items.isEmpty {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 10) {
+                                        ForEach(items) { item in
+                                            ItemChip(item: item)
+                                        }
+                                    }
+                                    .padding(.vertical, 4)
                                 }
+                            } else {
+                                Text("No items added yet.")
+                                    .font(.body)
+                                    .foregroundStyle(UITheme.textSecondary)
                             }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            
+                            Text("Item selection will be improved in the next step.")
+                                .font(.footnote)
+                                .foregroundStyle(UITheme.textSecondary)
                         }
-                    }
-
-                    if let loc = location {
-                        MapPreview(coordinate: loc.coordinate, name: loc.name)
-                            .frame(height: 160)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-
-                        Button(role: .destructive) {
-                            location = nil
-                        } label: {
-                            HStack {
-                                Spacer()
-                                Label("Remove Location", systemImage: "mappin.slash")
-                                Spacer()
-                            }
-                        }
-                    }
-                } header: {
-                    HStack(spacing: 6) {
-                        Text("Location")
-                        if location == nil {
-                            Text("REQUIRED")
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.orange, in: Capsule())
-                        } else {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                                .font(.caption)
-                        }
+                        .padding(.vertical, 4)
                     }
                 }
-
-                // MARK: Delete (edit mode only)
+                
+                // MARK: Delete
                 if isEditing, let onDelete {
                     Section {
                         Button(role: .destructive) {
@@ -186,6 +236,7 @@ struct AddEditPocketView: View {
                             HStack {
                                 Spacer()
                                 Text("Delete Pocket")
+                                    .fontWeight(.semibold)
                                 Spacer()
                             }
                         }
@@ -196,46 +247,66 @@ struct AddEditPocketView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") {
+                        dismiss()
+                    }
                 }
+                
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        guard let loc = location else { return }
+                        let orderedDays = Weekday.allCases.filter { selectedDays.contains($0) }
+                        
                         let pocket = Pocket(
                             id: existingPocket?.id ?? UUID(),
-                            name: name.trimmingCharacters(in: .whitespaces).uppercased(),
+                            name: trimmedName.uppercased(),
                             sfSymbol: sfSymbol,
-                            days: Array(selectedDays),
+                            days: orderedDays,
                             reminderTime: reminderTime,
-                            items: existingPocket?.items ?? [],
-                            location: loc
+                            items: existingPocket?.items ?? []
                         )
+                        
                         onSave(pocket)
                         dismiss()
                     }
                     .fontWeight(.semibold)
                     .disabled(!canSave)
+                    .accessibilityHint("Saves this pocket")
                 }
             }
             .sheet(isPresented: $showIconPicker) {
                 IconPickerView(selected: $sfSymbol)
             }
-            .sheet(isPresented: $showLocationPicker) {
-                LocationPickerView(pickedLocation: $location)
-            }
         }
-        .onAppear { loadExisting() }
+        .onAppear {
+            loadExisting()
+        }
     }
-
+    
+    // MARK: Helpers
+    
     private func loadExisting() {
-        guard let p = existingPocket else { return }
-        name         = p.name
-        sfSymbol     = p.sfSymbol
-        selectedDays = Set(p.days)
-        reminderTime = p.reminderTime
-        location     = p.location
+        guard let pocket = existingPocket else { return }
+        name = pocket.name
+        sfSymbol = pocket.sfSymbol
+        selectedDays = Set(pocket.days)
+        reminderTime = pocket.reminderTime
     }
-
+    
+    private func toggle(_ day: Weekday) {
+        if selectedDays.contains(day) {
+            selectedDays.remove(day)
+        } else {
+            selectedDays.insert(day)
+        }
+    }
+    
+    private func makeTime(hour: Int, minute: Int) -> Date {
+        var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        components.hour = hour
+        components.minute = minute
+        return Calendar.current.date(from: components) ?? Date()
+    }
+    
     @ViewBuilder
     private func quickSelectButton(_ label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -243,12 +314,13 @@ struct AddEditPocketView: View {
                 .font(.caption)
                 .fontWeight(.medium)
                 .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Color(.tertiarySystemBackground))
+                .padding(.vertical, 6)
+                .background(UITheme.chipBackground)
                 .clipShape(Capsule())
-                .foregroundStyle(.primary)
+                .foregroundStyle(UITheme.chipText)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
@@ -258,52 +330,37 @@ struct DayChip: View {
     let label: String
     let isSelected: Bool
     let action: () -> Void
-
+    
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 11))
-                .foregroundStyle(isSelected ? .white : .primary)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(
+                    isSelected
+                    ? UITheme.chipSelectedText
+                    : UITheme.chipText
+                )
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
-                .background(isSelected ? Color.primary : Color(.tertiarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding(.vertical, 8)
+                .background(
+                    isSelected
+                    ? UITheme.chipSelectedBackground
+                    : UITheme.chipBackground
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(
+                            isSelected
+                            ? UITheme.chipSelectedBackground
+                            : UITheme.primary.opacity(0.08),
+                            lineWidth: 1
+                        )
+                )
         }
         .buttonStyle(.plain)
         .animation(.spring(response: 0.25), value: isSelected)
-    }
-}
-
-// MARK: - MapPreview
-
-struct MapPreview: View {
-    let coordinate: CLLocationCoordinate2D
-    let name: String
-
-    var body: some View {
-        Map(initialPosition: .region(
-            MKCoordinateRegion(
-                center: coordinate,
-                span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
-            )
-        )) {
-            Annotation(name, coordinate: coordinate, anchor: .bottom) {
-                VStack(spacing: 0) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.primary)
-                            .frame(width: 28, height: 28)
-                        Image(systemName: "mappin")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.white)
-                    }
-                    Triangle()
-                        .fill(Color.primary)
-                        .frame(width: 10, height: 6)
-                }
-            }
-        }
-        .mapStyle(.standard)
-        .disabled(true)
+        .accessibilityLabel(label)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
     }
 }

@@ -3,90 +3,94 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var store = AppStore()
 
-    @State private var quickAlertEnabled = true
     @State private var showAddPocket = false
     @State private var pocketToEdit: Pocket? = nil
+    @State private var showItemsManager = false
+
+    private var today: Weekday {
+        let weekdayNumber = Calendar.current.component(.weekday, from: Date())
+        switch weekdayNumber {
+        case 1: return .sun
+        case 2: return .mon
+        case 3: return .tue
+        case 4: return .wed
+        case 5: return .thu
+        case 6: return .fri
+        default: return .sat
+        }
+    }
+
+    private var todaysPockets: [Pocket] {
+        store.pockets.filter { $0.days.contains(today) }
+    }
+
+    private var checkedPocketCount: Int {
+        todaysPockets.filter { !$0.items.isEmpty }.count
+    }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-
+        ZStack(alignment: .bottomTrailing) {
             VStack(spacing: 0) {
 
-                // ── WAISTBAND (light header area) ──────────────────────────
+                // ── WAISTBAND / HEADER ────────────────────────────────────
                 ZStack(alignment: .bottom) {
-                    // Light background — the "waistband" fabric
-                    Color(red: 0.95, green: 0.95, blue: 0.96)
+                    Color(.systemGray6)
                         .ignoresSafeArea(edges: .top)
 
                     VStack(spacing: 0) {
-                        // Title row
-                        // Title row
                         HStack(alignment: .center, spacing: 10) {
                             Text("Pockets")
-                                .font(
-                                    .system(
-                                        size: 36,
-                                        weight: .bold,
-                                        design: .default
-                                    )
-                                )
+                                .font(.system(size: 36, weight: .bold))
                                 .foregroundStyle(
-                                    Color(red: 0.12, green: 0.12, blue: 0.18)
-                                )
+                                    .primary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
 
                             Spacer()
 
-                            // Quick alert toggle — all on one line
-                            HStack(spacing: 6) {
-                                Text("Quick Alert")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(
-                                        Color(
-                                            red: 0.12,
-                                            green: 0.12,
-                                            blue: 0.18
-                                        )
-                                    )
-                                    .lineLimit(1)
-                                    .fixedSize()
-                                Toggle("", isOn: $quickAlertEnabled)
-                                    .labelsHidden()
-                                    .tint(.green)
-                                    .scaleEffect(0.9)
-                                    .fixedSize()
+                            Button {
+                                showAddPocket = true
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus")
+                                        .font(.subheadline.weight(.bold))
+
+                                    Text("New Pocket")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                .foregroundStyle(UITheme.primary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(UITheme.surface.opacity(0.92), in: Capsule())
+                                .shadow(color: .black.opacity(0.07), radius: 6, y: 2)
                             }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 7)
-                            .background(
-                                Color.white.opacity(0.85),
-                                in: Capsule()
-                            )
-                            .shadow(
-                                color: .black.opacity(0.07),
-                                radius: 6,
-                                y: 2
-                            )
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Create new pocket")
+                            .accessibilityHint("Opens the screen to create a new pocket")
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 10)
-                        .padding(.bottom, 14)  // ── BELT ──────────────────────────────────────────
+                        .padding(.bottom, 14)
+
                         Belt()
                     }
                 }
                 .fixedSize(horizontal: false, vertical: true)
 
-                // ── DENIM BODY ────────────────────────────────────────────
-                ZStack(alignment: .bottom) {
-                    // Denim texture background
+                // ── BODY ──────────────────────────────────────────────────
+                ZStack {
                     DenimBackground()
                         .ignoresSafeArea(edges: .bottom)
 
-                    // Pocket list
                     ScrollView {
-                        LazyVStack(spacing: 14) {
+                        LazyVStack(spacing: 16) {
+                            todaysCheckSection
+
+                            if !store.pockets.isEmpty {
+                                sectionHeader("All Pockets")
+                            }
+
                             ForEach(store.pockets) { pocket in
                                 PocketCardView(pocket: pocket) {
                                     pocketToEdit = pocket
@@ -94,7 +98,6 @@ struct ContentView: View {
                                 .environmentObject(store)
                             }
 
-                            // Add pocket placeholder
                             Button {
                                 showAddPocket = true
                             } label: {
@@ -102,45 +105,36 @@ struct ContentView: View {
                                     ZStack {
                                         Circle()
                                             .strokeBorder(
-                                                Color.white.opacity(0.4),
-                                                style: StrokeStyle(
-                                                    lineWidth: 2,
-                                                    dash: [5, 4]
-                                                )
+                                                UITheme.textOnDark.opacity(0.4),
+                                                style: StrokeStyle(lineWidth: 2, dash: [5, 4])
                                             )
                                             .frame(width: 48, height: 48)
+
                                         Image(systemName: "plus")
-                                            .font(
-                                                .system(
-                                                    size: 20,
-                                                    weight: .medium
-                                                )
-                                            )
-                                            .foregroundStyle(
-                                                .white.opacity(0.5)
-                                            )
+                                            .font(.system(size: 20, weight: .medium))
+                                            .foregroundStyle(UITheme.textOnDark.opacity(0.7))
                                     }
+
                                     Text("Add Pocket")
                                         .font(.subheadline)
                                         .fontWeight(.medium)
-                                        .foregroundStyle(.white.opacity(0.4))
+                                        .foregroundStyle(UITheme.textOnDark.opacity(0.85))
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 28)
                                 .background {
                                     RoundedRectangle(cornerRadius: 22)
                                         .strokeBorder(
-                                            Color.white.opacity(0.22),
-                                            style: StrokeStyle(
-                                                lineWidth: 2,
-                                                dash: [7, 5]
-                                            )
+                                            UITheme.textOnDark.opacity(0.28),
+                                            style: StrokeStyle(lineWidth: 2, dash: [7, 5])
                                         )
                                 }
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Add pocket")
+                            .accessibilityHint("Opens the create pocket screen")
 
-                            Color.clear.frame(height: 100)
+                            Color.clear.frame(height: 110)
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 16)
@@ -148,12 +142,47 @@ struct ContentView: View {
                 }
             }
 
-            // ── ITEM TRAY (pinned bottom) ─────────────────────────────────
-            ItemTrayView()
-                .environmentObject(store)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 36)
-                .shadow(color: .black.opacity(0.18), radius: 16, y: -2)
+            // MARK: Test Notification Button
+            Button("Test Notification") {
+                store.sendTestNotification()
+            }
+            .font(.subheadline)
+            .fontWeight(.semibold)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(UITheme.buttonPrimaryBackground, in: Capsule())
+            .foregroundStyle(UITheme.buttonPrimaryText)
+            .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
+            .padding(.bottom, 120)
+            .padding(.trailing, 20)
+            .accessibilityHint("Sends a test notification after a few seconds")
+
+            // ── FLOATING ITEMS BUTTON ────────────────────────────────────
+            Button {
+                showItemsManager = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "square.grid.2x2.fill")
+                        .font(.system(size: 18, weight: .semibold))
+
+                    Text("Items")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                }
+                .foregroundStyle(UITheme.buttonPrimaryText)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .background(
+                    Capsule()
+                        .fill(UITheme.buttonPrimaryBackground)
+                )
+                .shadow(color: .black.opacity(0.22), radius: 12, y: 6)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 20)
+            .padding(.bottom, 32)
+            .accessibilityLabel("Open items")
+            .accessibilityHint("Opens your saved items")
         }
         .ignoresSafeArea(edges: .bottom)
         .sheet(isPresented: $showAddPocket) {
@@ -168,6 +197,213 @@ struct ContentView: View {
                 store.deletePocket(id: pocket.id)
             }
         }
+        .sheet(isPresented: $showItemsManager) {
+            ItemsManagerView()
+                .environmentObject(store)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    // MARK: - Today Section
+
+    private var todaysCheckSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(UITheme.surfaceSoft)
+                        .frame(width: 54, height: 54)
+
+                    Image(systemName: todaysPockets.isEmpty ? "calendar" : "checklist")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(UITheme.textOnDark)
+                }
+                .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Today’s Check")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(UITheme.textOnDark)
+
+                    Text(heroSubtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(UITheme.textOnDark.opacity(0.88))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+            }
+
+            HStack(spacing: 10) {
+                summaryPill(
+                    title: "Today",
+                    value: today.full,
+                    systemImage: "sun.max.fill"
+                )
+
+                summaryPill(
+                    title: "Active",
+                    value: "\(todaysPockets.count)",
+                    systemImage: "tray.full.fill"
+                )
+
+                summaryPill(
+                    title: "Ready",
+                    value: "\(checkedPocketCount)",
+                    systemImage: "checkmark.circle.fill"
+                )
+            }
+
+            if todaysPockets.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("No pockets scheduled for today.")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(UITheme.textOnDark)
+
+                    Text("Create a pocket and choose days so PickitUP can remind you before you leave.")
+                        .font(.footnote)
+                        .foregroundStyle(UITheme.textOnDark.opacity(0.86))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(14)
+                .background(UITheme.surfaceSoft, in: RoundedRectangle(cornerRadius: 18))
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Scheduled Today")
+                        .font(.footnote)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(UITheme.textOnDark.opacity(0.94))
+                        .textCase(.uppercase)
+
+                    ForEach(todaysPockets.prefix(3)) { pocket in
+                        Button {
+                            pocketToEdit = pocket
+                        } label: {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(UITheme.surfaceSoft)
+                                        .frame(width: 40, height: 40)
+
+                                    Image(systemName: pocket.sfSymbol)
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundStyle(UITheme.textOnDark)
+                                }
+                                .accessibilityHidden(true)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(pocket.name)
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(UITheme.textOnDark)
+
+                                    Text(pocket.reminderTimeString)
+                                        .font(.caption)
+                                        .foregroundStyle(UITheme.textOnDark.opacity(0.82))
+                                }
+
+                                Spacer()
+
+                                statusBadge(for: pocket)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(UITheme.surfaceSoft, in: RoundedRectangle(cornerRadius: 16))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(pocket.name), \(pocket.reminderTimeString)")
+                        .accessibilityHint("Opens this pocket for editing")
+                    }
+                }
+            }
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 26)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            UITheme.surfaceGlass,
+                            UITheme.surfaceSoft
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26)
+                        .stroke(UITheme.textOnDark.opacity(0.20), lineWidth: 1)
+                )
+        )
+        .accessibilityElement(children: .contain)
+    }
+
+    private var heroSubtitle: String {
+        if todaysPockets.isEmpty {
+            return "Nothing is scheduled yet. Build a pocket and create a leaving routine."
+        }
+
+        if checkedPocketCount == todaysPockets.count {
+            return "Everything for today looks ready."
+        }
+
+        return "Check today’s essentials before you head out."
+    }
+
+    @ViewBuilder
+    private func sectionHeader(_ title: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundStyle(UITheme.textOnDark.opacity(0.94))
+            Spacer()
+        }
+        .padding(.top, 4)
+        .padding(.bottom, 2)
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    @ViewBuilder
+    private func summaryPill(title: String, value: String, systemImage: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(UITheme.textOnDark)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.caption2)
+                    .foregroundStyle(UITheme.textOnDark.opacity(0.82))
+
+                Text(value)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(UITheme.textOnDark)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(UITheme.surfaceSoft, in: Capsule())
+    }
+
+    @ViewBuilder
+    private func statusBadge(for pocket: Pocket) -> some View {
+        let isReady = !pocket.items.isEmpty
+
+        Text(isReady ? "Ready" : "Empty")
+            .font(.caption2)
+            .fontWeight(.bold)
+            .foregroundStyle(isReady ? UITheme.success : UITheme.warning)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(UITheme.surfaceSoft)
+            )
     }
 }
 
@@ -176,7 +412,6 @@ struct ContentView: View {
 struct Belt: View {
     var body: some View {
         ZStack(alignment: .center) {
-            // Belt strap
             Rectangle()
                 .fill(
                     LinearGradient(
@@ -191,9 +426,8 @@ struct Belt: View {
                 )
                 .frame(height: 36)
                 .overlay(alignment: .top) {
-                    // Top highlight stitch
                     Rectangle()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(UITheme.textOnDark.opacity(0.08))
                         .frame(height: 1)
                 }
                 .overlay(alignment: .bottom) {
@@ -202,11 +436,12 @@ struct Belt: View {
                         .frame(height: 1)
                 }
 
-            // Belt loops
             HStack {
                 BeltLoop()
                     .padding(.leading, 28)
+
                 Spacer()
+
                 BeltLoop()
                     .padding(.trailing, 28)
             }
@@ -219,13 +454,11 @@ struct Belt: View {
 struct BeltLoop: View {
     var body: some View {
         ZStack {
-            // Loop shadow
             RoundedRectangle(cornerRadius: 4)
                 .fill(Color.black.opacity(0.3))
                 .frame(width: 22, height: 44)
                 .offset(x: 1, y: 1)
 
-            // Loop body (denim coloured)
             RoundedRectangle(cornerRadius: 4)
                 .fill(
                     LinearGradient(
@@ -243,19 +476,16 @@ struct BeltLoop: View {
                         .strokeBorder(Color.black.opacity(0.35), lineWidth: 1.5)
                 )
 
-            // Stitching lines top & bottom
             VStack {
                 Rectangle()
-                    .fill(
-                        Color(red: 0.85, green: 0.72, blue: 0.45).opacity(0.7)
-                    )
+                    .fill(Color(red: 0.85, green: 0.72, blue: 0.45).opacity(0.7))
                     .frame(width: 14, height: 1.5)
                     .cornerRadius(1)
+
                 Spacer()
+
                 Rectangle()
-                    .fill(
-                        Color(red: 0.85, green: 0.72, blue: 0.45).opacity(0.7)
-                    )
+                    .fill(Color(red: 0.85, green: 0.72, blue: 0.45).opacity(0.7))
                     .frame(width: 14, height: 1.5)
                     .cornerRadius(1)
             }
@@ -269,17 +499,18 @@ struct BeltLoop: View {
 struct DenimBackground: View {
     var body: some View {
         ZStack {
-            // Base denim colour
-            Color(red: 0.25, green: 0.50, blue: 0.76)
+            UITheme.denim
 
-            // Subtle diagonal weave overlay
             Canvas { context, size in
                 let spacing: CGFloat = 4
                 var y: CGFloat = 0
+
                 while y < size.height + spacing {
                     var x: CGFloat =
                         (y / spacing).truncatingRemainder(dividingBy: 2) == 0
-                        ? 0 : spacing / 2
+                        ? 0
+                        : spacing / 2
+
                     while x < size.width {
                         let rect = CGRect(
                             x: x,
@@ -289,10 +520,11 @@ struct DenimBackground: View {
                         )
                         context.fill(
                             Path(rect),
-                            with: .color(.white.opacity(0.04))
+                            with: .color(UITheme.textOnDark.opacity(0.04))
                         )
                         x += spacing
                     }
+
                     y += 2
                 }
             }

@@ -1,8 +1,6 @@
 import Foundation
-import CoreLocation
 import SwiftUI
-internal import Combine
-import MapKit
+import Combine
 
 // MARK: - Weekday
 
@@ -28,6 +26,20 @@ enum Weekday: String, CaseIterable, Codable, Identifiable {
         case .sun: return "Sunday"
         }
     }
+
+    /// Calendar weekday mapping
+    /// Sunday = 1 ... Saturday = 7
+    var calendarWeekday: Int {
+        switch self {
+        case .sun: return 1
+        case .mon: return 2
+        case .tue: return 3
+        case .wed: return 4
+        case .thu: return 5
+        case .fri: return 6
+        case .sat: return 7
+        }
+    }
 }
 
 // MARK: - PocketItem
@@ -36,18 +48,6 @@ struct PocketItem: Identifiable, Codable, Equatable {
     var id: UUID = UUID()
     var name: String
     var sfSymbol: String
-}
-
-// MARK: - PocketLocation
-
-struct PocketLocation: Codable, Equatable {
-    var latitude: Double
-    var longitude: Double
-    var name: String
-
-    var coordinate: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-    }
 }
 
 // MARK: - Pocket
@@ -59,37 +59,45 @@ struct Pocket: Identifiable, Codable {
     var days: [Weekday]
     var reminderTime: Date
     var items: [PocketItem]
-    var location: PocketLocation
+
+    private static let reminderFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter
+    }()
 
     var reminderTimeString: String {
-        let f = DateFormatter()
-        f.timeStyle = .short
-        return f.string(from: reminderTime)
+        Self.reminderFormatter.string(from: reminderTime)
     }
 
     var daysSummary: String {
-        if days.isEmpty { return "No days set" }
-        if days.count == 7 { return "Every day" }
+        let orderedDays = Weekday.allCases.filter { days.contains($0) }
+
+        if orderedDays.isEmpty { return "No days set" }
+        if orderedDays.count == 7 { return "Every day" }
+
         let weekdays: [Weekday] = [.mon, .tue, .wed, .thu, .fri]
-        let weekend: [Weekday]  = [.sat, .sun]
-        if Set(days) == Set(weekdays) { return "Weekdays" }
-        if Set(days) == Set(weekend)  { return "Weekends" }
-        return days.map(\.rawValue).joined(separator: ", ")
+        let weekend: [Weekday] = [.sat, .sun]
+
+        if Set(orderedDays) == Set(weekdays) { return "Weekdays" }
+        if Set(orderedDays) == Set(weekend) { return "Weekends" }
+
+        return orderedDays.map(\.rawValue).joined(separator: ", ")
     }
 
     static func defaultTime() -> Date {
-        var c = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-        c.hour   = 17
-        c.minute = 30
-        return Calendar.current.date(from: c) ?? Date()
+        var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        components.hour = 17
+        components.minute = 30
+        return Calendar.current.date(from: components) ?? Date()
     }
 }
 
 // MARK: - Persistence
 
 private enum StorageKey {
-    static let pockets   = "pickitup.pockets"
-    static let trayItems = "pickitup.trayItems"
+    static let pockets = "pickitup.pockets.v2"
+    static let trayItems = "pickitup.trayItems.v2"
 }
 
 private func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
@@ -104,7 +112,8 @@ private func save<T: Encodable>(_ value: T, key: String) {
 
 // MARK: - AppStore
 
-class AppStore: ObservableObject {
+@MainActor
+final class AppStore: ObservableObject {
 
     @Published var pockets: [Pocket] {
         didSet { save(pockets, key: StorageKey.pockets) }
@@ -115,28 +124,62 @@ class AppStore: ObservableObject {
     }
 
     init() {
-        // Load from storage — empty arrays if first launch
-        self.pockets   = load([Pocket].self,     key: StorageKey.pockets)   ?? []
+        self.pockets = load([Pocket].self, key: StorageKey.pockets) ?? []
         self.trayItems = load([PocketItem].self, key: StorageKey.trayItems) ?? []
+
+        Task {
+            let status = await NotificationManager.shared.getAuthorizationStatus()
+
+            if status == .authorized || status == .provisional || status == .ephemeral {
+                await NotificationManager.shared.rescheduleAll(pockets: self.pockets)
+            }
+        }
     }
 
     // MARK: - Pocket CRUD
 
     func addPocket(_ pocket: Pocket) {
         pockets.append(pocket)
+
+        Task {
+            let status = await NotificationManager.shared.getAuthorizationStatus()
+
+            if status == .notDetermined {
+                let granted = await NotificationManager.shared.requestPermission()
+                if granted {
+                    await NotificationManager.shared.scheduleNotifications(for: pocket)
+                }
+            } else if status == .authorized || status == .provisional || status == .ephemeral {
+                await NotificationManager.shared.scheduleNotifications(for: pocket)
+            }
+        }
     }
 
     func updatePocket(_ pocket: Pocket) {
-        if let idx = pockets.firstIndex(where: { $0.id == pocket.id }) {
-            pockets[idx] = pocket
+        guard let idx = pockets.firstIndex(where: { $0.id == pocket.id }) else { return }
+
+        pockets[idx] = pocket
+
+        Task {
+            let status = await NotificationManager.shared.getAuthorizationStatus()
+
+            if status == .authorized || status == .provisional || status == .ephemeral {
+                await NotificationManager.shared.scheduleNotifications(for: pocket)
+            }
         }
     }
 
     func deletePocket(id: UUID) {
+        guard let pocket = pockets.first(where: { $0.id == id }) else {
+            pockets.removeAll { $0.id == id }
+            return
+        }
+
+        NotificationManager.shared.removeNotifications(for: pocket)
         pockets.removeAll { $0.id == id }
     }
 
-    // MARK: - Item CRUD
+    // MARK: - Tray Item CRUD
 
     func addTrayItem(_ item: PocketItem) {
         trayItems.append(item)
@@ -146,35 +189,51 @@ class AppStore: ObservableObject {
         if let idx = trayItems.firstIndex(where: { $0.id == item.id }) {
             trayItems[idx] = item
         }
-        // Keep in sync inside all pockets
-        for pi in 0..<pockets.count {
-            if let ii = pockets[pi].items.firstIndex(where: { $0.id == item.id }) {
-                pockets[pi].items[ii] = item
+
+        for pocketIndex in pockets.indices {
+            if let itemIndex = pockets[pocketIndex].items.firstIndex(where: { $0.id == item.id }) {
+                pockets[pocketIndex].items[itemIndex] = item
             }
         }
     }
 
     func deleteTrayItem(id: UUID) {
         trayItems.removeAll { $0.id == id }
-        // Also remove from every pocket
-        for pi in 0..<pockets.count {
-            pockets[pi].items.removeAll { $0.id == id }
+
+        for pocketIndex in pockets.indices {
+            pockets[pocketIndex].items.removeAll { $0.id == id }
         }
     }
 
     // MARK: - Pocket ↔ Item
 
     func addItemToPocket(item: PocketItem, pocketId: UUID) {
-        if let idx = pockets.firstIndex(where: { $0.id == pocketId }) {
-            if !pockets[idx].items.contains(where: { $0.id == item.id }) {
-                pockets[idx].items.append(item)
-            }
+        guard let idx = pockets.firstIndex(where: { $0.id == pocketId }) else { return }
+
+        if !pockets[idx].items.contains(where: { $0.id == item.id }) {
+            pockets[idx].items.append(item)
         }
     }
 
     func removeItemFromPocket(itemId: UUID, pocketId: UUID) {
-        if let idx = pockets.firstIndex(where: { $0.id == pocketId }) {
-            pockets[idx].items.removeAll { $0.id == itemId }
+        guard let idx = pockets.firstIndex(where: { $0.id == pocketId }) else { return }
+        pockets[idx].items.removeAll { $0.id == itemId }
+    }
+
+    // MARK: - Debug
+
+    func sendTestNotification() {
+        Task {
+            let status = await NotificationManager.shared.getAuthorizationStatus()
+
+            if status == .notDetermined {
+                let granted = await NotificationManager.shared.requestPermission()
+                if granted {
+                    await NotificationManager.shared.scheduleTestNotification(after: 5)
+                }
+            } else if status == .authorized || status == .provisional || status == .ephemeral {
+                await NotificationManager.shared.scheduleTestNotification(after: 5)
+            }
         }
     }
 }
